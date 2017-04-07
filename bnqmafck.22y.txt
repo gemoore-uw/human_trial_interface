@@ -1,0 +1,29 @@
+﻿Initial Git Commit
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch master
+# Changes to be committed:
+#	new file:   base_emg_recorder.m
+#	new file:   command_history_S1_12_15_2015.m
+#	new file:   create_paradigm_reach.m
+#	new file:   create_paradigm_reach.py
+#	new file:   create_paradigm_reach.pyc
+#	new file:   ear_muscle_test_UA-2008.12.04.daq
+#	new file:   ear_muscle_test_info.mat
+#	new file:   emg_session_1.hdr
+#	new file:   matcompat.py
+#	new file:   matcompat.pyc
+#	new file:   paradigm_test.m
+#	new file:   paradigm_test.py
+#	new file:   paradigm_test_backup.m
+#	new file:   process_event_emg.m
+#	new file:   process_event_emg.py
+#	new file:   process_event_emg.pyc
+#	new file:   signal_viewer.asv
+#	new file:   signal_viewer.m
+#	new file:   signal_viewer_CB.m
+#	new file:   signal_viewer_class.m
+#	new file:   test.txt
+#	new file:   test_reach_recorder.m
+#
+
