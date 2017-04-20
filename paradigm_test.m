@@ -15,7 +15,7 @@ nCallBack = 1200;  % number of samples after which callback is called
 fs = 1200;         % sampling rate
 cue = {'Left','Rest'}; % list of cues
 cue_type = {'text', 'text'}; % type of each cue (ex: 'text','audio', etc)
-sub_cue = {''};%{'25','50','75','100'}; %  % list of percent flex
+sub_cue = {''}; % {'25','50','75','100'}%  list of percent flex
 cue_description = {'left flex','rest'}; % description of each cue
 sub_cue_type = {'bar','bar','bar','bar'}; % ???
 
