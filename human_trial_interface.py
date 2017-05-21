@@ -12,7 +12,7 @@ import datetime
 
 #########################################################
 class create_paradigm_reach(object):
-   start_delay = 5
+   start_delay = 5 # time before the program starts running (when 'Initiating Trial')
    isi_random = 1
    # cue
    # cue_description
@@ -21,23 +21,21 @@ class create_paradigm_reach(object):
    # cb_event
 
    # initializes class
-   def __init__(self,n,task_interval,rest_interval,isi,ncallback,fs,
-                cue,sub_cue,cue_description,cue_type,sub_cue_type):
+   def __init__(self, cue, sub_cue, cue_description, cue_type, sub_cue_type):
       self.cue = cue  
       self.sub_cue = sub_cue 
       self.cue_description = cue_description  
       self.cue_type = cue_type  
       self.sub_cue_type = sub_cue_type 
-      
-      self.action(n, task_interval, rest_interval, isi, ncallback, fs)
    
-   def action(self, n, task_interval, rest_interval, isi, ncallback, fs): 
+   # creates cb_event: matrix representing the paradigm with the proper times for each event     
+   def create(self, n, task_interval, rest_interval, isi, ncallback, fs): 
       
       # open figure window
       fig = plt.figure()
       self.text = plt.figtext(0.4,0.5,'Initiating Trial...', fontsize=15)
       plt.ioff()
-      plt.show()
+      #plt.show()
             
       nc = len(cue) # number of columns in cue
       self.cue = hstack(('+', cue, ' '))
@@ -48,7 +46,6 @@ class create_paradigm_reach(object):
       # sets events to a n*nc*prepareAndISIInclusion by 2 matrix
       self.events = zeros((n*nc*prepareAndISIInclusion, 2)) 
 
-      
       #repmat in matlab
       cl = tile(r_[2.:nc+2],(n,1)) # n copies of 2 to nc+1
       
@@ -80,13 +77,12 @@ class create_paradigm_reach(object):
          if checkEvent == 1:
             time = time + np.round(rest_interval/callback_time)
          elif checkEvent == nc + 2:
-            tisi = 1 + np.random.uniform(0,isi, size=1)
+            #tisi = 1 + np.random.uniform(0,isi) # the time for the isi interval (random up to isi)
+            tisi = isi # the time for the isi interval (fixed at isi seconds)
             time = time + np.round(tisi/callback_time)
          else:
             time = time + np.round(task_interval/callback_time)
             
-      print ev
-      print ev.flatten(1)
       self.cb_event = zeros((int(time),2)) # time by 2 matrix of zeros
       
       # sets values at non-zero indices (in cbtimes) to 1 in the 2nd row of cb_event
@@ -100,7 +96,7 @@ class create_paradigm_reach(object):
 
 def process_event_emg(task,event,runIndex,totalInterval,sessionNumber):
 
-   # switch statement
+   # switch statement to display the current task
    cueType = task.cue_type[event-1]
    if cueType == 'ISI':
       task.text.set_text('ISI')
@@ -115,39 +111,33 @@ def process_event_emg(task,event,runIndex,totalInterval,sessionNumber):
       
    
 #########################################################################  
-
-
-# variables for testing paradigm_test without using create_paradigm_reach
-task_cb_event = np.array([0,0,0,0,1,0,2,0,4,0,0,1,0,2,0,4,0,0,0,1,0,2,0,4,0,0,0,1,0,3,0,4,0,1,0,3,0,4]) # task.cb_event
-task_cue_type = ['start_trial', 'text', 'text', 'ISI']
-task_cue = ['+', 'Left', 'Rest', '']
-
-
 # PARADIGM_TEST
 
 sessionNumber = 1
 
-numOfTasks = 5    # number of tasks of each cue
-taskInterval = 2  # number of seconds for the task
-restInterval = 2  # number of seconds before the task for restperiod
+numOfTasks = 2    # number of times each task (left, right, rest) will be displayed 
+                  # number of sets of commands = numOfTasks*len(cue)
+taskInterval = 2  # number of seconds for the task (left,right,rest)
+restInterval = 3  # number of seconds before the task (to prepare)
+isiInterval = 5   # inter stimulus interval
 totalInterval = taskInterval + restInterval
-isiInterval = 4   # inter stimulus interval
 nCallBack = 1200  # number of samples after which callback is called
 fs = 1200         # sampling rate
 
 cue = ['Left','Right','Rest'] # list of cues
 cue_type = [] # type of each cue (ex: 'text','audio', etc)
-for i in range(len(cue)):
+for i in range(len(cue)): # make cue_type the same length as cue
    cue_type.append('text')
-#cue_type = ['text', 'text', 'text'] # type of each cue (ex: 'text','audio', etc)
+#cue_type = ['text', 'text', 'text'] 
 
 sub_cue = ['']
-cue_description = ['left flex','rest'];
-sub_cue_type = ['bar','bar','bar','bar'];
+cue_description = ['left flex','rest']
+sub_cue_type = ['bar','bar','bar','bar']
 
 # creates the paradigm for a cued hand movement
-task = create_paradigm_reach(numOfTasks,taskInterval,restInterval,isiInterval,
-                             nCallBack,fs,cue,sub_cue,cue_description,cue_type,sub_cue_type);
+task = create_paradigm_reach(cue, sub_cue, cue_description, cue_type, sub_cue_type)
+task.create(numOfTasks, taskInterval, restInterval, isiInterval, nCallBack, fs)
+
 #print task.cb_event
 
 runIndex = 0 # index of each run of an event
@@ -158,7 +148,7 @@ print
 
 for i in range(1, task.cb_event.shape[0]): # size of task.cb_event's 1st column
    event = int(task.cb_event[i,0]) # set event to number representing the cue (0-4)
-   #0=no change, 1=prepare, 2=left, 3=rest, 4=ISI
+   # 0=no change, 1=prepare, 2=left, 3=right 4=rest, 5=ISI      
    
    if event > 0:
       if task.cue_type[event-1] == "start_trial":
@@ -178,11 +168,11 @@ for i in range(1, task.cb_event.shape[0]): # size of task.cb_event's 1st column
          fID.close()
          
       # processes the current event
-      process_event_emg(task,event,runIndex,totalInterval,sessionNumber);
+      process_event_emg(task,event,runIndex,totalInterval,sessionNumber)
       
    time.sleep(1) # pause for 1 second
             
 # display "Ending Trial...'
 print 'Ending Trial...'
-plt.figtext(0.4,0.5,'Ending Trial...', fontsize=15)
+task.text.set_text('Ending Trial...')
 plt.close()
