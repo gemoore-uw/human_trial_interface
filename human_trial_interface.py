@@ -1,188 +1,228 @@
 from numpy import *
 import numpy as np
-#import scipy as Sci
-#import scipy.linalg
 import random
 import matplotlib.pyplot as plt
-#import pylab
-#from pylab import plot,show,close
 import time
 import datetime
 
-
 #########################################################
 class create_paradigm_reach(object):
-   start_delay = 5
-   isi_random = 1
+   
+   # member variables:
+   start_delay = 5 # time before the program starts running (when 'Initiating Trial')
+   # cb_event   
    # cue
    # cue_description
-   # cue_type
+   # cue_type   
    # events
-   # cb_event
+   # fig
+   # text
 
    # initializes class
-   def __init__(self,n,task_interval,rest_interval,isi,ncallback,fs,
-                cue,sub_cue,cue_description,cue_type,sub_cue_type):
+   def __init__(self, cue, sub_cue, cue_description, cue_type, sub_cue_type):
       self.cue = cue  
-      self.sub_cue = sub_cue 
+      self.cue_type = cue_type        
       self.cue_description = cue_description  
-      self.cue_type = cue_type  
-      self.sub_cue_type = sub_cue_type 
-      
-      self.action(n, task_interval, rest_interval, isi, ncallback, fs)
    
-   def action(self, n, task_interval, rest_interval, isi, ncallback, fs): 
+   # creates events & cb_event(matrix with numbers representing each event, and zeros representing time between events)    
+   # n: (number of tasks) number of times each cue (left, right, rest) will be displayed 
+   # task_interval: number of seconds for the cue (left,right,rest)
+   # rest_interval: number of seconds before the cue (time during 'Prepare')
+   # isi: inter stimulus interval
+   # ncallback: number of samples after which callback is called
+   # fs: sampling rate
+   # isiRandom: whether isi is random or not
+   def create_events(self, n, task_interval, rest_interval, isi, ncallback, fs, isiRandom): 
       
       # open figure window
-      fig = plt.figure()
-      self.text = plt.figtext(0.4,0.5,'Initiating Trial...', fontsize=15)
-      plt.ioff()
-      plt.show()
+      self.fig = plt.figure(figsize=[3,3]) # opens figure window of 3 x 3 inches
+      self.text = plt.figtext(0.5,0.5,'Initiating Trial...', fontsize=20,
+                              horizontalalignment='center',verticalalignment='center')
+      plt.pause(0.01) # pause needed after setting text for a dynamic figure window
             
-      nc = len(cue) # number of columns in cue
-      self.cue = hstack(('+', cue, ' '))
-      self.cue_description = hstack(('rest',self.cue_description,'ISI'))
-      self.cue_type = hstack(('start_trial',self.cue_type, 'ISI'))
+      nc = len(cue) # length of cue (number of columns)
+      self.cue = hstack(('+', cue, ' ')) # ['+','Left','Right','Rest',' ']
+      self.cue_description = hstack(('rest',self.cue_description,'ISI')) # ['rest','left flex','right flex','rest','isi']
+      self.cue_type = hstack(('start_trial',self.cue_type, 'ISI')) # ['start_trial','text',text','text','ISI']
       
       prepareAndISIInclusion = 3
-      # sets events to a n*nc*prepareAndISIInclusion by 2 matrix
+      # n*nc*prepareAndISIInclusion by 2 matrix of zeros
       self.events = zeros((n*nc*prepareAndISIInclusion, 2)) 
 
+      # n copies of 2 to nc+1
+      cl = tile(r_[2.:nc+2],(n,1)) # repmat function in matlab
       
-      #repmat in matlab
-      cl = tile(r_[2.:nc+2],(n,1)) # n copies of 2 to nc+1
-      
-      # take rows of cl and put into 1 vector 
-      ev = cl.flatten(1) # cl(:) in matlab
-      
-      # random permutation of numbers in ev vector
-      ev = np.random.permutation(ev)
+      # take rows of cl and combine into a row vector in increasing order 
+      ev = cl.flatten(1) # cl(:) function in matlab 
+      ev = np.random.permutation(ev) # random permutation of numbers in ev
 
-      # concatenate ones(column vector) with ev and column of nc+2
-      ones_column = ones((n*nc,1))
+      # concatenate ones(column vector) with ev and column vector of nc+2 (nc+2 represents 'ISI')
+      ones_column = ones((n*nc,1)) # n*nc column array of ones (1's represent 'Prepare')
       a = c_[ones_column, ev, ones_column*nc + 2]
+      ev = a.T # transpose a
       
-      # transpose
-      ev = a.T
-      
-      # set first column (0-index) in events(zeros vector) to all numbers in ev
+      # set first column in events to all numbers in ev (starting from each row)
       self.events[:,0] = ev.flatten(1)
       
+      nsub = len(sub_cue) # length of sub_cue
+      # for using graded flexing
+      if nsub > 1: # creates cue, cue_description, and cue_type to include the percents of flexing
+         cc = ['+']
+         cd = ['rest']
+         ct = ['start_trial']
+         u = 1
+         for i in range(len(cue)):
+            for j in range(len(sub_cue)):
+               cc.append(cue[i] + ':' + sub_cue[j]) # ex: 'left:25'
+               cd.append(cue_description[i] + ':' + sub_cue[j]) # ex: 'left_flex:25'
+               ct.append(cue_type[i] + ':' + sub_cue_type[j]); # ex: 'text:bar'
+         
+         cc.append(' ')
+         cd.append('ISI')
+         ct.append('ISI')
+         self.cue = cc
+         self.cue_description = cd
+         self.cue_type = ct
+         
+         ev = self.events[:,0] # all data in the first column of self.events
+         evn = np.zeros((n*nc*prepareAndISIInclusion + n*nc*(nsub-1))) # row vector of zeros
+         evn[0:evn.shape[0]:(nsub+2)] = 1 # set every nsub+2 value equal to 1 starting from 0 until the end (1's represent 'Prepare')
+         evn[(nsub+1):evn.shape[0]:(nsub+2)] = nc*nsub+2 # set every nsub+2 value to nc*nsub+2 starting from nsub+1 until the end (represents 'ISI')
+         
+         for k in range(1, nsub+1):
+            endPoint = evn.shape[0] # length of evn
+            rangeTemp = np.arange(0,endPoint,nsub+2) # row vector of length endPoint, with values incrementing by nsub+2
+            logicalTemp = logical_and((ev > 1) , (ev < (nc+2))) # boolean array with True at indicies where both statements are true
+            evn[rangeTemp+k] = (ev[logicalTemp]-2)*nsub+k+1 # take data from ev at non-zero valued indices in logicalTemp
+         
+         nc = nsub*nc
+         self.events = zeros((evn.shape[0],2))  # sets self.events to a matrix of zeros (length of evn by 2 dimensions)
+         self.events[:,0] = evn # sets the first column of events to evn
+         ev = evn
       
       callback_time = ncallback/fs;
       time = np.round(self.start_delay/callback_time)
-      cbtimes = zeros(self.events.shape[0])
+      cbtimes = zeros((self.events.shape[0])).astype(int)
+      
       for i in range(self.events.shape[0]):
          cbtimes[i] = time
          
-         # switch statement
          checkEvent = self.events[i,0]
          if checkEvent == 1:
             time = time + np.round(rest_interval/callback_time)
          elif checkEvent == nc + 2:
-            tisi = 1 + np.random.uniform(0,isi, size=1)
+            if isiRandom == True: # for a random ISI interval
+               tisi = 1 + np.random.uniform(0,isi) # the time for the isi interval (random number up to isi)
+            else: # for a fixed ISI interval
+               tisi = isi # the time for the isi interval (fixed at isi seconds)
+            
             time = time + np.round(tisi/callback_time)
          else:
             time = time + np.round(task_interval/callback_time)
             
-      print ev
-      print ev.flatten(1)
       self.cb_event = zeros((int(time),2)) # time by 2 matrix of zeros
+
+      # sets values at non-zero indices (in cbtimes) to 1 in the 2nd column of cb_event
+      self.cb_event[cbtimes,1] = 1 
       
-      # sets values at non-zero indices (in cbtimes) to 1 in the 2nd row of cb_event
-      self.cb_event[ix_(cbtimes),1] = 1 
-      
-      # sets values at non-zero indices (in cbtimes) to ev in the 1st row of cb_event
-      self.cb_event[ix_(cbtimes),0] = ev.flatten(1)       
+      # sets values at non-zero indices (in cbtimes) to ev in the 1st column of cb_event
+      self.cb_event[cbtimes,0] = ev.flatten(1)       
       
 ########################################################################
 # PROCESS_EVENT_EMG
 
 def process_event_emg(task,event,runIndex,totalInterval,sessionNumber):
-
-   # switch statement
+   
+   # sets the figure text to the current event
    cueType = task.cue_type[event-1]
    if cueType == 'ISI':
       task.text.set_text('ISI')
       print 'ISI'
       print
-   elif cueType == 'start_trial':
+      plt.pause(.01)                      
+   elif cueType == 'start_trial':    
       task.text.set_text('Prepare')
       print 'Prepare'
-   else:
+      plt.pause(.01)                      
+   else:   
       task.text.set_text(task.cue[event-1])
       print task.cue[event-1]
+      plt.pause(.01)                
       
-   
 #########################################################################  
+# PARADIGM_TEST - client of create_paradigm_reach and process_event_emg
 
+sessionNumber = 1 # stored to a file to keep track of the session
 
-# variables for testing paradigm_test without using create_paradigm_reach
-task_cb_event = np.array([0,0,0,0,1,0,2,0,4,0,0,1,0,2,0,4,0,0,0,1,0,2,0,4,0,0,0,1,0,3,0,4,0,1,0,3,0,4]) # task.cb_event
-task_cue_type = ['start_trial', 'text', 'text', 'ISI']
-task_cue = ['+', 'Left', 'Rest', '']
-
-
-# PARADIGM_TEST
-
-sessionNumber = 1
-
-numOfTasks = 5    # number of tasks of each cue
-taskInterval = 2  # number of seconds for the task
-restInterval = 2  # number of seconds before the task for restperiod
-totalInterval = taskInterval + restInterval
+numOfTasks = 2    # number of times each cue (left, right, rest) will be displayed 
+                  # number of sets of commands = numOfTasks*len(cue)
+taskInterval = 2  # number of seconds for the cue (left,right,rest)
+restInterval = 2  # number of seconds before the task (time during 'Prepare')
 isiInterval = 4   # inter stimulus interval
+isiRandom = False # whether isiInterval is random or not
+totalInterval = taskInterval + restInterval
 nCallBack = 1200  # number of samples after which callback is called
 fs = 1200         # sampling rate
+useGradedFlexing = True # whether graded flexing is used or not
 
 cue = ['Left','Right','Rest'] # list of cues
 cue_type = [] # type of each cue (ex: 'text','audio', etc)
-for i in range(len(cue)):
+for i in range(len(cue)): # make cue_type the same length as cue
    cue_type.append('text')
-#cue_type = ['text', 'text', 'text'] # type of each cue (ex: 'text','audio', etc)
 
-sub_cue = ['']
-cue_description = ['left flex','rest'];
-sub_cue_type = ['bar','bar','bar','bar'];
+if useGradedFlexing:
+   sub_cue = ['25','50','75','100'] # for graded flexing
+else:
+   sub_cue = ['']
+
+sub_cue_type = ['bar','bar','bar','bar']
+cue_description = ['left flex','right flex','rest']
 
 # creates the paradigm for a cued hand movement
-task = create_paradigm_reach(numOfTasks,taskInterval,restInterval,isiInterval,
-                             nCallBack,fs,cue,sub_cue,cue_description,cue_type,sub_cue_type);
-#print task.cb_event
+task = create_paradigm_reach(cue, sub_cue, cue_description, cue_type, sub_cue_type)
+task.create_events(numOfTasks, taskInterval, restInterval, isiInterval, nCallBack, fs, isiRandom)
 
-runIndex = 0 # index of each run of an event
+runIndex = 0 # index of each run of an event to be recorded to a file
 
 # display 'Initiating Trial'
-print 'Initiating Trial'
+print 'Initiating Trial...'
 print
 
 for i in range(1, task.cb_event.shape[0]): # size of task.cb_event's 1st column
-   event = int(task.cb_event[i,0]) # set event to number representing the cue (0-4)
-   #0=no change, 1=prepare, 2=left, 3=rest, 4=ISI
+   event = int(task.cb_event[i-1,0]) # number representing the event (0-5 for non-graded flexing)
+   # 0=no change, 1=prepare, 2=left, 3=right 4=rest, 5=ISI (non-graded flexing)
    
    if event > 0:
-      if task.cue_type[event-1] == "start_trial":
+      nextEvent = int(task.cb_event[i-1 + restInterval,0]) # event at restInterval indices after the current index
+      
+      # (at 'Prepare') or (using graded flexing and (the current event is not ISI and the next event is not ISI))
+      if task.cue_type[event-1] == "start_trial" or (useGradedFlexing and event != 14 and nextEvent != 14):
          runIndex = runIndex + 1
          
          # create fID file for trial data
          fID = open('emg_session_' + str(sessionNumber) + '.hdr', "a"); # create file (ex: emg_session_1.hdr)
          
-         if task.cue[int(task.cb_event[i+2,0])-1] == task.cue[1]: # event type = 'start_trial'
-            trialData = task.cue[1] # set trialData to 'Left'
-         else:
-            trialData = task.cue[2] # set trialData to 'Rest'
+         # cue at the nextEvent
+         trialData = task.cue[nextEvent-1]  
          
-         # print data to fID file
+         # print data to fID file (restInterval seconds before the event is displayed)
          fID.write(str(runIndex) + ',' + str(trialData) + ',' + str(datetime.datetime.now()))
-         fID.write("\n")
+         fID.write("\n") # write the next data on the next line
          fID.close()
          
-      # processes the current event
-      process_event_emg(task,event,runIndex,totalInterval,sessionNumber);
-      
-   time.sleep(1) # pause for 1 second
+      # display the current event
+      process_event_emg(task,event,runIndex,totalInterval,sessionNumber)
+   
+   # pauses 0.99s for i = 1 to account for the 0.01s pause that occurs once in create_paradigm_reach
+   # pauses 0.99s for event > 0 to account for the 0.01s pause everytime process_event_emg runs
+   if i == 1 or event > 0: 
+      time.sleep(0.99)
+   elif event == 0: # process_event_emg was not executed, so the full 1 second pause is needed 
+      time.sleep(1)
+   
             
 # display "Ending Trial...'
 print 'Ending Trial...'
-plt.figtext(0.4,0.5,'Ending Trial...', fontsize=15)
-plt.close()
+task.text.set_text('Ending Trial...')
+plt.pause(3) 
+#plt.close() # closes figure window
